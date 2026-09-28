@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow — Architectural Case Study</title>
+
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js for Performance Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            theme: {
+              pitch: '#090a0f',
+              panel: '#10131d',
+              card: '#131826',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderHover: 'rgba(59, 130, 246, 0.4)',
+              accent: '#3b82f6',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              violet: '#8b5cf6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* User Typography Spec Enforcements */
+    :root {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #090a0f;
+      color: #9ca3af;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* Hero title: Responsive 69-136px, Bold, Tight letter spacing */
+    .type-hero-title {
+      font-size: clamp(4.3rem, 8.5vw, 8.5rem);
+      line-height: 0.95;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+    }
+
+    /* Section headings: Responsive 37-70px, Bold, Tight letter spacing */
+    .type-section-heading {
+      font-size: clamp(2.3rem, 4.4vw, 4.35rem);
+      line-height: 1.05;
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      color: #ffffff;
+    }
+
+    /* Intro paragraphs: About 20px, Regular, 1.6 line height */
+    .type-intro {
+      font-size: 20px;
+      line-height: 1.6;
+      font-weight: 400;
+      color: #cbd5e1;
+    }
+
+    /* Body text: 16px, Regular, 1.6 line height */
+    .type-body {
+      font-size: 16px;
+      line-height: 1.6;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+
+    /* Small section labels: 12px, Bold, Uppercase, Spaced letters */
+    .type-label {
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    /* Ambient and Card Utilities */
+    .editorial-border {
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .ambient-header-glow {
+      background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.14) 0%, rgba(9, 10, 15, 0) 70%);
+    }
+
+    .glass-card {
+      background: rgba(16, 19, 29, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s ease-out;
+    }
+    .glass-card:hover {
+      border-color: rgba(59, 130, 246, 0.35);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090a0f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e2638;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3b82f6;
+    }
+  </style>
+</head>
+<body class="selection:bg-blue-600/30 selection:text-white">
+
+  <!-- Ambient background glow -->
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] ambient-header-glow pointer-events-none -z-10"></div>
+
+  <!-- MAIN EDITORIAL CONTAINER (NO NAVBAR, DIRECT CASE STUDY LAYOUT) -->
+  <div class="max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 pt-16 pb-28 space-y-32">
+
+    <!-- ==================== HERO SECTION ==================== -->
+    <header class="space-y-8 border-b editorial-border pb-16">
+      
+      <!-- Top Author Bar (Marina Akter as shown in PDF) -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+          <span class="text-white font-semibold tracking-tight text-sm uppercase">Marina Akter</span>
+        </div>
+        <div class="type-label text-slate-500">
+          Full-Stack SaaS Case Study
+        </div>
+      </div>
+
+      <!-- Giant Editorial Title -->
+      <div class="pt-4">
+        <h1 class="type-hero-title">TaskFlow.</h1>
+      </div>
+
+      <!-- Subtitle Intro Paragraph -->
+      <div class="max-w-4xl">
+        <p class="type-intro text-slate-300">
+          Building a multi-tenant operations platform that brings agency projects, client work, time tracking, and invoicing into one place.
+        </p>
+      </div>
+
+      <!-- PDF-Faithful Pill Metrics Row -->
+      <div class="flex flex-wrap items-center gap-3 pt-2">
+        <a 
+          href="https://taskflow.apixel.net/" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          class="px-4 py-2 rounded-full glass-card flex items-center gap-2 text-xs font-mono text-slate-300 hover:text-white hover:border-blue-500/40 transition-colors"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Website launch</span>
+          <i data-lucide="external-link" class="w-3 h-3 text-slate-400"></i>
+        </a>
+        <div class="px-4 py-2 rounded-full glass-card flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold">
+          <span>88%</span>
+          <span class="text-[11px] font-normal text-slate-400">query latency drop</span>
+        </div>
+        <div class="px-4 py-2 rounded-full glass-card flex items-center gap-2 text-xs font-mono text-cyan-400 font-bold">
+          <span>20%</span>
+          <span class="text-[11px] font-normal text-slate-400">JS bundle reduction</span>
+        </div>
+        <div class="px-4 py-2 rounded-full glass-card flex items-center gap-2 text-xs font-mono text-violet-400 font-bold">
+          <span>14/14</span>
+          <span class="text-[11px] font-normal text-slate-400">multi-tenant audits</span>
+        </div>
+      </div>
+
+      <!-- Hero Hero Image / Showcase Mockup -->
+      <div class="pt-6">
+        <div class="rounded-2xl overflow-hidden glass-card shadow-2xl relative group">
+          <img 
+            src="3.jpg" 
+            alt="TaskFlow Dashboard & Financial Operations Overview" 
+            class="w-full h-auto object-cover max-h-[640px] transition-transform duration-700 group-hover:scale-[1.01]"
+            onerror="this.src='https://placehold.co/1280x720/10131d/3b82f6?text=TaskFlow+Executive+Operations+Platform'"
+          />
+          <a 
+            href="https://taskflow.apixel.net/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            class="absolute bottom-4 left-4 right-4 md:left-6 md:right-auto px-4 py-2.5 rounded-xl bg-black/80 hover:bg-black/95 backdrop-blur-md border border-white/10 hover:border-blue-500/50 text-xs font-mono text-slate-300 hover:text-white flex items-center gap-3 transition-colors"
+          >
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>TaskFlow Production Instance · taskflow.apixel.net</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-400"></i>
+          </a>
+        </div>
+      </div>
+
+    </header>
+
+    <!-- ==================== SECTION 1 ==================== -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 pt-4">
+      
+      <!-- Left Column: Editorial Heading & Content Context -->
+      <div class="lg:col-span-6 space-y-6">
+        <div class="type-label text-blue-500">
+          The Problem Statement
+        </div>
+        <h2 class="type-section-heading">
+          One operating system for the work behind agency delivery.
+        </h2>
+        <p class="type-intro">
+          Agency teams often manage tasks, hours, clients, and invoicing across disconnected software. TaskFlow brings those workflows into a single tenant-aware platform.
+        </p>
+        <p class="type-body">
+          For fast-scaling agencies, tool sprawl introduces a silent tax: $150–$300 per seat every month across Jira, Toggl, Harvest, and HubSpot. Even worse, leadership lacks real-time insight into blended project margins and external clients struggle with insecure project visibility.
+        </p>
+      </div>
+
+      <!-- Right Column: Content Architecture List & Comparison -->
+      <div class="lg:col-span-6 flex flex-col justify-center space-y-4">
+        
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-red-500/80 space-y-2">
+          <div class="type-label text-red-400">SaaS Fragmentation Cost</div>
+          <h4 class="text-white font-bold text-lg">5+ Fragmented Subscriptions</h4>
+          <p class="type-body text-sm text-slate-400">
+            Jira for engineering sprints, Toggl for billable stopwatches, Harvest for PDF invoices, and HubSpot for client rosters. Siloed data makes automated profitability reporting impossible.
+          </p>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500/80 space-y-2">
+          <div class="type-label text-emerald-400">TaskFlow Consolidated Solution</div>
+          <h4 class="text-white font-bold text-lg">Single Tenant-Aware Platform</h4>
+          <p class="type-body text-sm text-slate-400">
+            Kanban boards, UTC-locked calendars, atomic dual-currency billing, timesheets, and a zero-trust client portal residing in one synchronized database model.
+          </p>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-blue-500/80 space-y-2">
+          <div class="type-label text-blue-400">Immediate ROI</div>
+          <h4 class="text-white font-bold text-lg">Zero Subscription Fee Bloat</h4>
+          <p class="type-body text-sm text-slate-400">
+            Replaced hundreds of dollars per seat per month with a custom enterprise asset owned completely by the agency.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== SECTION 2: WORKFLOWS & CONTENT LIST ==================== -->
+    <section class="space-y-12 border-t editorial-border pt-16">
+      
+      <div class="max-w-4xl space-y-4">
+        <div class="type-label text-blue-500">
+          Architectural Principles
+        </div>
+        <h2 class="type-section-heading">
+          Unify the workflows without compromising boundaries or speed.
+        </h2>
+        <p class="type-intro">
+          Access project state, authorize multi-tenant mutations, and execute transactions without computational friction.
+        </p>
+      </div>
+
+      <!-- PDF Architectural Content List Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Content List Item 1 -->
+        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <span class="text-xs font-mono text-blue-400 bg-blue-500/10 px-2 py-1 rounded">01</span>
+            <h3 class="text-xl font-bold text-white tracking-tight">Separate every organization</h3>
+            <p class="type-body text-sm text-slate-400">
+              Tenant-scoped data access at the JWT session layer. Every API endpoint forces <code class="text-xs text-blue-300 font-mono">session.user.orgId</code>, eliminating Insecure Direct Object References (IDOR).
+            </p>
+          </div>
+          <div class="pt-4 border-t editorial-border font-mono text-[11px] text-slate-500">
+            Index: { org, project, status }
+          </div>
+        </div>
+
+        <!-- Content List Item 2 -->
+        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <span class="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded">02</span>
+            <h3 class="text-xl font-bold text-white tracking-tight">Support real agency work</h3>
+            <p class="type-body text-sm text-slate-400">
+              Kanban drag-and-drop powered by <code class="text-xs text-cyan-300 font-mono">@dnd-kit</code>, UTC date-anchored calendars, Gantt dependency chains, and atomic timesheets built directly inside tasks.
+            </p>
+          </div>
+          <div class="pt-4 border-t editorial-border font-mono text-[11px] text-slate-500">
+            4-View Synchronized State
+          </div>
+        </div>
+
+        <!-- Content List Item 3 -->
+        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <span class="text-xs font-mono text-violet-400 bg-violet-500/10 px-2 py-1 rounded">03</span>
+            <h3 class="text-xl font-bold text-white tracking-tight">Bridge Edge and Node</h3>
+            <p class="type-body text-sm text-slate-400">
+              Lightweight Edge middleware executes instantaneous session decryption and route blocking, while Node.js Server Actions execute heavy database drivers and bcrypt security hashing.
+            </p>
+          </div>
+          <div class="pt-4 border-t editorial-border font-mono text-[11px] text-slate-500">
+            NextAuth v5 Runtime Split
+          </div>
+        </div>
+
+        <!-- Content List Item 4 -->
+        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between space-y-6">
+          <div class="space-y-3">
+            <span class="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">04</span>
+            <h3 class="text-xl font-bold text-white tracking-tight">Remove avoidable waiting</h3>
+            <p class="type-body text-sm text-slate-400">
+              Relocated compute functions from US East (<code class="text-xs text-emerald-300 font-mono">iad1</code>) directly into Mumbai (<code class="text-xs text-emerald-300 font-mono">bom1</code>), ending transatlantic roundtrips and slashing query time by 88%.
+            </p>
+          </div>
+          <div class="pt-4 border-t editorial-border font-mono text-[11px] text-slate-500">
+            Regional BOM1 Co-Location
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ==================== SECTION 3: SECURITY & BOUNDARIES ==================== -->
+    <section class="space-y-12 border-t editorial-border pt-16">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Left Side: Editorial Concept Title -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="type-label text-blue-500">
+            Zero-Trust Security
+          </div>
+          <h2 class="type-section-heading">
+            Enforce access at each boundary.
+          </h2>
+          <p class="type-intro">
+            The organization ID is the authenticated source for all queries and aggregations. Permissions are checked again at the mutation endpoint.
+          </p>
+          <p class="type-body">
+            Security isn't a feature added at the end; it's the fundamental architecture. By nesting access rules across four deterministic gates, TaskFlow guarantees 100% tenant isolation with zero possibility of cross-company data leakage.
+          </p>
+        </div>
+
+        <!-- Right Side: Four Layers of Role Control Pipeline -->
+        <div class="lg:col-span-7 space-y-4">
+          
+          <div class="glass-card p-6 rounded-2xl flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 font-mono font-bold text-sm">
+              L1
+            </div>
+            <div>
+              <h4 class="text-white font-bold text-base mb-1">Tenant-scoped data access</h4>
+              <p class="type-body text-sm">
+                Every database query and aggregation pipeline enforces <code class="text-xs text-blue-400 font-mono">{ organization: session.user.organizationId }</code>. Client queries cannot override or omit this filter.
+              </p>
+            </div>
+          </div>
+
+          <div class="glass-card p-6 rounded-2xl flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0 border border-violet-500/20 font-mono font-bold text-sm">
+              L2
+            </div>
+            <div>
+              <h4 class="text-white font-bold text-base mb-1">Four layers of role control</h4>
+              <p class="type-body text-sm">
+                From Edge Route Proxy to dynamic navigation trimming, <code class="text-xs text-violet-400 font-mono">useRole</code> component gating, and finally server-side capability validation (<code class="text-xs text-violet-400 font-mono">hasPermission.ts</code>).
+              </p>
+            </div>
+          </div>
+
+          <div class="glass-card p-6 rounded-2xl flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0 border border-cyan-500/20 font-mono font-bold text-sm">
+              L3
+            </div>
+            <div>
+              <h4 class="text-white font-bold text-base mb-1">Verified asynchronous events</h4>
+              <p class="type-body text-sm">
+                Webhooks sent from external providers like Resend are cryptographically verified with HMAC-SHA256 signatures over <code class="text-xs text-cyan-400 font-mono">id.timestamp.body</code> with strict &plusmn;5-minute replay attack windows.
+              </p>
+            </div>
+          </div>
+
+          <div class="glass-card p-6 rounded-2xl flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 font-mono font-bold text-sm">
+              L4
+            </div>
+            <div>
+              <h4 class="text-white font-bold text-base mb-1">Client projection filtering</h4>
+              <p class="type-body text-sm">
+                When external clients view projects, internal team hourly wages, private agency notes, and operational overhead metrics are stripped at the database projection stage before payload transfer.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Visual Architecture Pipeline Diagram Card -->
+      <div class="glass-card rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+        <div class="flex items-center justify-between pb-6 border-b editorial-border">
+          <span class="type-label text-slate-400 flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+            Request Path & Boundary Enforcement
+          </span>
+          <span class="text-xs font-mono text-emerald-400">14/14 Audits Verified</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
+          <div class="p-5 rounded-xl bg-theme-panel border editorial-border space-y-2">
+            <div class="text-xs font-mono text-blue-400">STEP 1: EDGE MIDDLEWARE</div>
+            <div class="text-white font-semibold text-sm">proxy.ts (Vercel Edge)</div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Decodes NextAuth session token, extracts authenticated user organization ID, and rejects requests missing active tenant sessions.
+            </p>
+          </div>
+
+          <div class="p-5 rounded-xl bg-theme-panel border editorial-border space-y-2">
+            <div class="text-xs font-mono text-violet-400">STEP 2: NODE SERVER ACTION</div>
+            <div class="text-white font-semibold text-sm">hasPermission(role, cap)</div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Server-side capability authorization. Blocks unauthorized role mutation attempts, whether triggered from UI or forged cURL payloads.
+            </p>
+          </div>
+
+          <div class="p-5 rounded-xl bg-theme-panel border editorial-border space-y-2">
+            <div class="text-xs font-mono text-emerald-400">STEP 3: MONGODB ATLAS</div>
+            <div class="text-white font-semibold text-sm">Compound Tenant Indexes</div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Queries execute against <code class="text-emerald-300 font-mono">{ org, project, ... }</code> compound indexes. 100% index-only execution in under 8ms.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== SECTION 4: PRODUCT FEATURES ==================== -->
+    <section class="space-y-12 border-t editorial-border pt-16">
+      
+      <div class="max-w-4xl space-y-4">
+        <div class="type-label text-blue-500">
+          Integrated Workflows
+        </div>
+        <h2 class="type-section-heading">
+          One platform, several connected jobs.
+        </h2>
+        <p class="type-intro">
+          TaskFlow unifies delivery, financial operations, and client visibility so each workflow can use the same project context.
+        </p>
+      </div>
+
+      <!-- Feature Grid Matching PDF List -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <!-- Job 1: Four project views -->
+        <div class="glass-card rounded-2xl overflow-hidden group space-y-6 p-6">
+          <div class="aspect-video bg-theme-panel rounded-xl overflow-hidden relative border editorial-border">
+            <img 
+              src="2.jpg" 
+              alt="TaskFlow 4-View Unified Kanban" 
+              class="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+              onerror="this.src='https://placehold.co/800x480/10131d/3b82f6?text=TaskFlow+Unified+Kanban+Views'"
+            />
+            <div class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-[11px] font-mono text-blue-400 border border-white/10">
+              Drag & Drop @dnd-kit
+            </div>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white tracking-tight mb-2">Four project views</h3>
+            <p class="type-body text-sm text-slate-400">
+              Seamlessly switch between Kanban with dense ordering re-indexes, hierarchical List view, UTC-anchored Calendar, and dependency-linked Gantt timeline without data reloads.
+            </p>
+          </div>
+        </div>
+
+        <!-- Job 2: Dual-currency invoicing -->
+        <div class="glass-card rounded-2xl overflow-hidden group space-y-6 p-6">
+          <div class="aspect-video bg-theme-panel rounded-xl overflow-hidden relative border editorial-border">
+            <img 
+              src="1.jpg" 
+              alt="TaskFlow Dual Currency Invoicing & CRM" 
+              class="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+              onerror="this.src='https://placehold.co/800x480/10131d/3b82f6?text=TaskFlow+Dual-Currency+Invoicing'"
+            />
+            <div class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-[11px] font-mono text-emerald-400 border border-white/10">
+              USD ($) & BDT (৳)
+            </div>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white tracking-tight mb-2">Dual-currency invoicing</h3>
+            <p class="type-body text-sm text-slate-400">
+              Atomic increment transactions generate collision-free invoice numbers (<code class="text-xs text-slate-300 font-mono">INV-001...</code>) supporting blended currency billing, automated PDF generation, and client payment tracking.
+            </p>
+          </div>
+        </div>
+
+        <!-- Job 3: Scoped client portal -->
+        <div class="glass-card rounded-2xl overflow-hidden group space-y-6 p-6">
+          <div class="aspect-video bg-theme-panel rounded-xl overflow-hidden relative border editorial-border">
+            <img 
+              src="5.jpg" 
+              alt="TaskFlow Workspace & Client Scope Modal" 
+              class="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+              onerror="this.src='https://placehold.co/800x480/10131d/3b82f6?text=TaskFlow+Workspace+Isolation'"
+            />
+            <div class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-[11px] font-mono text-violet-400 border border-white/10">
+              Zero-Leak Scope
+            </div>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white tracking-tight mb-2">Scoped client portal</h3>
+            <p class="type-body text-sm text-slate-400">
+              External stakeholders log into white-labeled views locked solely to their active milestones and paid invoices. Internal team costs and private notes are filtered out at the schema level.
+            </p>
+          </div>
+        </div>
+
+        <!-- Job 4: Built-in time tracking -->
+        <div class="glass-card rounded-2xl overflow-hidden group space-y-6 p-6">
+          <div class="aspect-video bg-theme-panel rounded-xl overflow-hidden relative border editorial-border">
+            <img 
+              src="4.jpg" 
+              alt="TaskFlow User Preferences & Team Workflows" 
+              class="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+              onerror="this.src='https://placehold.co/800x480/10131d/3b82f6?text=TaskFlow+Team+Workflows'"
+            />
+            <div class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-[11px] font-mono text-cyan-400 border border-white/10">
+              Atomic Time Tracking
+            </div>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white tracking-tight mb-2">Integrated billable timesheets</h3>
+            <p class="type-body text-sm text-slate-400">
+              Native stopwatch timer embedded right inside the task detail drawer. Categorizes effort into billable vs internal hours, feeding directly into project margin calculations without third-party tools.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ==================== SECTION 5: PERFORMANCE BENCHMARKS ==================== -->
+    <section class="space-y-12 border-t editorial-border pt-16">
+      
+      <div class="max-w-4xl space-y-4">
+        <div class="type-label text-emerald-400">
+          Telemetry & Engineering Gains
+        </div>
+        <h2 class="type-section-heading">
+          Performance changes you can measure.
+        </h2>
+        <p class="type-intro">
+          Profiling in production showed targeted changes moved database-facing functions closer to the MongoDB cluster and eased initial bundle load.
+        </p>
+      </div>
+
+      <!-- Benchmark Visuals with Chart.js -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Latency Chart Card -->
+        <div class="glass-card p-6 sm:p-8 rounded-2xl space-y-6">
+          <div class="flex items-center justify-between pb-4 border-b editorial-border">
+            <div>
+              <div class="type-label text-emerald-400">Database API Roundtrip</div>
+              <h4 class="text-white font-bold text-lg mt-1">Cross-Region vs Co-Located</h4>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+              -88% Latency
+            </span>
+          </div>
+
+          <div class="h-64 relative w-full">
+            <canvas id="latencyChart"></canvas>
+          </div>
+
+          <p class="type-body text-sm text-slate-400">
+            Routing compute functions to Mumbai (<code class="text-slate-300 font-mono">bom1</code>) co-located with MongoDB Atlas reduced roundtrip execution times from 1,850ms to 200ms.
+          </p>
+        </div>
+
+        <!-- Bundle Size Breakdown Chart Card -->
+        <div class="glass-card p-6 sm:p-8 rounded-2xl space-y-6">
+          <div class="flex items-center justify-between pb-4 border-b editorial-border">
+            <div>
+              <div class="type-label text-cyan-400">Initial JavaScript Payload</div>
+              <h4 class="text-white font-bold text-lg mt-1">Critical Path Optimization</h4>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-bold">
+              -20% Payload
+            </span>
+          </div>
+
+          <div class="h-64 relative w-full flex items-center justify-center">
+            <canvas id="bundleChart"></canvas>
+          </div>
+
+          <p class="type-body text-sm text-slate-400">
+            Wrapping heavy visualization engines in <code class="text-slate-300 font-mono">next/dynamic</code> with <code class="text-slate-300 font-mono">ssr: false</code> deferred 361KB until after the first contentful paint.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Before and After Comparison Table (PDF Faithful) -->
+      <div class="glass-card rounded-2xl p-6 sm:p-8 overflow-hidden">
+        <div class="type-label text-slate-400 mb-4">Security and Maintainability Metrics</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b editorial-border text-xs font-mono text-slate-400 uppercase">
+                <th class="py-3 px-4">Dimension</th>
+                <th class="py-3 px-4 text-red-400">Legacy Disconnected Tools</th>
+                <th class="py-3 px-4 text-emerald-400">TaskFlow Unified Engine</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y editorial-border text-slate-300">
+              <tr>
+                <td class="py-3.5 px-4 font-semibold text-white">Monthly Tool Expenses</td>
+                <td class="py-3.5 px-4 text-slate-400">$180/user across Jira, Toggl & Harvest</td>
+                <td class="py-3.5 px-4 font-bold text-emerald-400">$0/mo 3rd-party SaaS fees</td>
+              </tr>
+              <tr>
+                <td class="py-3.5 px-4 font-semibold text-white">DB API Roundtrip</td>
+                <td class="py-3.5 px-4 text-slate-400">~1,850ms transatlantic latency</td>
+                <td class="py-3.5 px-4 font-bold text-emerald-400">~200ms warm execution</td>
+              </tr>
+              <tr>
+                <td class="py-3.5 px-4 font-semibold text-white">Critical JS Payload</td>
+                <td class="py-3.5 px-4 text-slate-400">1.84 MB render-blocking library load</td>
+                <td class="py-3.5 px-4 font-bold text-emerald-400">1.47 MB (-20% bundle weight)</td>
+              </tr>
+              <tr>
+                <td class="py-3.5 px-4 font-semibold text-white">Multi-Tenant Isolation</td>
+                <td class="py-3.5 px-4 text-slate-400">High IDOR exposure via URL params</td>
+                <td class="py-3.5 px-4 font-bold text-emerald-400">14/14 automated isolation tests passed</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== SECTION 6: CLOSING STATEMENT ==================== -->
+    <section class="border-t editorial-border pt-16 space-y-8">
+      
+      <div class="max-w-4xl space-y-4">
+        <div class="type-label text-blue-500">
+          Conclusion
+        </div>
+        <h2 class="type-section-heading">
+          Complex workflows deserve clear products and dependable foundations.
+        </h2>
+        <p class="type-intro text-slate-300">
+          When companies look to replace SaaS bloat with custom operational hubs, they need partners who understand database index design, Edge computing, and strict multi-tenant isolation.
+        </p>
+      </div>
+
+      <div class="glass-card p-8 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-l-4 border-l-blue-500">
+        <div>
+          <div class="text-white font-bold text-lg">Prepared by Marina Akter</div>
+          <div class="text-sm text-slate-400 font-mono">Lead SaaS Architect & Product Engineer</div>
+          <div class="text-xs text-slate-500 mt-1">Available for custom multi-tenant & operations web platform architecture</div>
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <a 
+            href="https://taskflow.apixel.net/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/25 flex items-center gap-2"
+          >
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Visit Live Platform</span>
+          </a>
+          <a 
+            href="mailto:maring@apixel.net" 
+            class="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-all border editorial-border flex items-center gap-2"
+          >
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span>Get in Touch</span>
+          </a>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Editorial Footer -->
+    <footer class="pt-8 border-t editorial-border text-xs text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
+      <div>TaskFlow Case Study</div>
+      <div>Strict TypeScript · Next.js 16 · MongoDB Atlas · Tailwind CSS</div>
+    </footer>
+
+  </div>
+
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Chart.js Dark Mode Palette Defaults
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+
+    // 1. Latency Bar Chart
+    const ctxLatency = document.getElementById('latencyChart').getContext('2d');
+    new Chart(ctxLatency, {
+      type: 'bar',
+      data: {
+        labels: ['US East (iad1) Cross-Ocean', 'Mumbai (bom1) Co-Located'],
+        datasets: [{
+          label: 'Latency (ms)',
+          data: [1850, 200],
+          backgroundColor: [
+            'rgba(239, 68, 68, 0.4)',
+            'rgba(16, 185, 129, 0.75)'
+          ],
+          borderColor: [
+            '#ef4444',
+            '#10b981'
+          ],
+          borderWidth: 1.5,
+          borderRadius: 8,
+          barThickness: 50
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#10131d',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            titleColor: '#fff',
+            bodyColor: '#94a3b8',
+            padding: 12,
+            callbacks: {
+              label: function(ctx) {
+                return ` ${ctx.parsed.y} ms (${ctx.dataIndex === 1 ? '-88% latency' : 'Transatlantic delay'})`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: {
+              callback: function(val) { return val + 'ms'; }
+            }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 12 } }
+          }
+        }
+      }
+    });
+
+    // 2. Critical JS Payload Doughnut Chart
+    const ctxBundle = document.getElementById('bundleChart').getContext('2d');
+    new Chart(ctxBundle, {
+      type: 'doughnut',
+      data: {
+        labels: ['Core Framework & App (1,478 KB)', 'Deferred Chart Libs (361 KB)'],
+        datasets: [{
+          data: [1478, 361],
+          backgroundColor: [
+            '#3b82f6',
+            'rgba(255, 255, 255, 0.08)'
+          ],
+          borderColor: '#10131d',
+          borderWidth: 3,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              boxWidth: 12,
+              padding: 16,
+              color: '#94a3b8',
+              font: { size: 12 }
+            }
+          },
+          tooltip: {
+            backgroundColor: '#10131d',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            titleColor: '#fff',
+            bodyColor: '#94a3b8',
+            padding: 12,
+            callbacks: {
+              label: function(ctx) {
+                return ` ${ctx.parsed} KB`;
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
